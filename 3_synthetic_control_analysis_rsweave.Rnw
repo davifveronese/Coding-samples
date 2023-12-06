@@ -223,13 +223,6 @@ LA_data <- LA_data %>%
 
 \vspace{-2em} % Adjust the value as needed
 
-\begin{abstract}
-\noindent Can a policy-driven constitutional reform shape policies and induce public spending? I formulate a theoretical framework according to which, in contexts of fragile coalitions, uncertainty about the future, and redistributive pressure, political actors have incentives to strategically use the constitution to bypass opposition, implement policies, and bind subsequent governments, which may increase the allocation of resources to selected policies even when critical junctures pass and political power shifts. Using a synthetic control, I provide evidence that the Ecuadorian Constitution of 2008 produced a substantial and persistent effect on public spending on education (mean effect of approximately 1.7\% of GDP), being a crucial element of education reform in Ecuador. Inference based on permutation of placebo tests shows that, under a random permutation of the intervention, the probability of estimating an effect as large as Ecuador’s is 6.7\%. Analyzing distributional consequences, I show that the reform increased secondary enrollment, which tends to benefit low-income families, although it had no effect on primary enrollment, years of schooling, and literacy rates. On the other hand, a sizeable fraction of the new resources was allocated to tertiary education, which contributes to educational inequality.
-\end{abstract}
-
-\begin{center}
-\textbf{Keywords:} Constitution, Education, Public Spending, Redistribution, Ecuador
-\end{center}
 
 \vspace{-2em} % Adjust the value as needed
 
