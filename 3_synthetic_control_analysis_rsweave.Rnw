@@ -1,0 +1,455 @@
+\documentclass[11pt]{article}
+
+\usepackage{indentfirst, amsmath, setspace, amssymb, amsthm}
+\usepackage[backend=bibtex, style=authoryear]{biblatex} 
+\addbibresource{bib.bib}
+%\usepackage[backend=bibtex]{biblatex}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{graphicx} 
+\usepackage{pgf,tikz} 
+%\usepackage{pgfplots}
+\usetikzlibrary{arrows,shapes}
+\usetikzlibrary{decorations}
+\usepackage{enumitem}
+\usepackage{pdflscape}
+\usepackage{mathtools}
+\usepackage{upgreek} 
+\usepackage{xfrac}
+\usepackage{epstopdf}
+\usepackage{color}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{longtable} 
+\usepackage{verbatim}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{longtable}
+\usepackage{dcolumn}
+\usepackage{lscape}
+%\usepackage{apacite}
+\usepackage{hyperref}
+\usetikzlibrary{shapes,arrows}
+\usetikzlibrary{positioning}
+\usepackage[capposition=top]{floatrow}
+\usepackage{fullpage}
+%\usepackage[small,bf]{caption}
+\usepackage{float}
+\usepackage{placeins}
+\usepackage{color, colortbl}
+\usepackage{bigstrut}
+\renewcommand{\floatpagefraction}{.8}
+\definecolor{LightCyan}{RGB}{204,229,255}
+\usepackage{xcolor}
+\hypersetup{
+    colorlinks,
+    linkcolor={red!50!black},
+    citecolor={blue!50!black},
+    urlcolor={blue!80!black}
+}
+\usepackage{adjustbox}
+\newcolumntype{R}[2]{%
+    >{\adjustbox{angle=#1,lap=\width-(#2)}\bgroup}%
+    l%
+    <{\egroup}%
+}
+\newcommand*\rot{\multicolumn{1}{R{45}{1em}}}% no optional argument here, please!
+\theoremstyle{plain}
+\newtheorem{hyp}{Hypothesis}
+\usepackage{subcaption}
+\newcommand{\subfloat}[2][need a sub-caption]{\subcaptionbox{#1}{#2}}
+\newcolumntype{L}[1]{>{\raggedright\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
+\newcommand{\citeposs}[1]{\citeauthor{#1}'s \citeyear{#1}}
+\usepackage{rotating}
+\usepackage{ragged2e}
+\newcolumntype{P}[1]{>{\RaggedRight\hspace{0pt}}p{#1}}
+\usepackage[left=1.25in, right=1.25in, top=1.25in, bottom=1.25in, footskip=.25in]{geometry}
+% This makes footnotes appear to be single spaced within each entry, but double spaced between entries.
+\setlength{\footnotesep}{0pt}
+\newtheorem{prop}{Proposition}
+\pagestyle{plain}
+\onehalfspacing
+\usepackage{bm} % for bold math symbols
+
+<<purpose_coding_sample>>=
+
+# This script is a fragment of the synthetic control analysis I presented in my writing sample. It also contains cleaning steps. # It integrates R and LaTeX through RSweave.
+# As it was developed for an ongoing project, all references to real data, paths, and names were removed. 
+# Thus, it is an anonymized script with the exclusive purpose of presenting some of the R codings I have been working on.
+# Please do not circulate it.
+
+@
+
+<<setup_general, include=F>>=
+knitr::opts_chunk$set(echo = F, warning=F, message=F, error=F, cache=T)
+options(Encoding="UTF-8")
+@
+
+<<setup_pre, cache=FALSE, include=F>>=
+
+library(readxl)
+library(haven)
+library(Synth)
+library(tidyverse)
+library(tidylog)
+library(ggplot2)
+library(knitr)
+library(kableExtra)
+library(stargazer)
+
+@
+
+<<prepare_data_1>>=
+
+# Import, clean and merge data
+data1 <- read_excel("path")
+
+data1 <- data1 %>% 
+  rename(variable = `Gasto público por función`,
+                          country = `País__ESTANDAR`,
+                          year = `Años__ESTANDAR`) %>%
+  select(-indicator, -`Cobertura institucional__OpGobierno`, -unit, -notes_ids, -source_id) %>%
+  pivot_wider(names_from = variable,
+              values_from = value) %>%
+  arrange(country, year)
+
+data2 <- read_excel("path") 
+
+data2 <- data2 %>%
+  rename(variable = `Clasificación económica Operaciones del gobierno`,
+         country = `País__ESTANDAR`,
+         year = `Años__ESTANDAR`) %>%
+  arrange(country, year) %>%
+  distinct(country, year, variable, .keep_all = TRUE) %>%
+  select(-indicator, -`Cobertura institucional__OpGobierno`, -unit, -notes_ids, -source_id) %>%
+  pivot_wider(names_from = variable,
+              values_from = value)
+
+data3 <- read_excel("path")
+
+data3 <- data3 %>% rename(variable = indicator,
+                          country = `País__ESTANDAR`,
+                          year = `Años__ESTANDAR`) %>%
+  arrange(country, year) %>%
+  distinct(country, year, variable, .keep_all = TRUE) %>%
+  select(-unit, -notes_ids, -source_id) %>%
+  pivot_wider(names_from = variable,
+              values_from = value)
+
+data4 <- read_excel("path")
+
+data4 <- data4 %>%
+  rename(variable = `Pobreza extrema y pobreza`,
+         country = `País__ESTANDAR`,
+         year = `Años__ESTANDAR`) %>%
+  arrange(country, year) %>%
+  distinct(country, year, variable, .keep_all = TRUE) %>%
+  select(-indicator, -unit, -notes_ids, -source_id, -`Area geográfica_(EH)`) %>%
+  pivot_wider(names_from = variable,
+              values_from = value)
+
+# Merge all
+data <- full_join(data1, data2, by = c("country", "year")) %>%
+  full_join(data3, by = c("country", "year")) %>%
+  full_join(data4, by = c("country", "year")) %>%
+  arrange(country, year)
+
+data <- data %>% filter(
+  !(country %in% c("América Latina", "América Latina y el Caribe", 
+                   "Associación Latinoamericana de Integración (ALADI)",
+                   "Comunidad Andina (CAN)", "Comunidad del Caribe (CARICOM)",
+                   "Mercado Común Centroamericano (MCCA)", 
+                   "Mercado Común del Sur (MERCOSUR)"))) %>% 
+  mutate(country =
+           case_when(
+             country == "Belice" ~ "Belize",
+             country == "Bolivia (Estado Plurinacional de)" ~ "Bolivia",
+             country == "Brasil" ~ "Brazil",
+             country == "México" ~ "Mexico",
+             country == "Venezuela (República Bolivariana de)" ~ "Venezuela",
+             country == "Panamá" ~ "Panama",
+             country == "Perú" ~ "Peru",
+             TRUE ~ country
+           ))
+
+LA_data <- read_dta("path")
+
+LA_data <- LA_data %>% left_join(data, by = c("country", "year"))
+
+LA_data <- LA_data %>%
+  rename(total_expenditure = `Erogaciones totales`,
+         overall_primary_balance = `Resultado primario`)
+
+# Create IDs
+LA_data <- LA_data %>%
+  mutate(id = 
+           case_when(country == "Ecuador" ~ 1,
+                     country == "Argentina" ~ 2,
+                     country == "Bolivia" ~ 3,
+                     country == "Brazil" ~ 4,
+                     country == "Chile" ~ 5,
+                     country == "Colombia" ~ 6,
+                     country == "Costa Rica" ~ 7,
+                     country == "El Salvador" ~ 8,
+                     country == "Guatemala" ~ 9,
+                     country == "Guyana" ~ 10,
+                     country == "Honduras" ~ 11,
+                     country == "Mexico" ~ 12,
+                     country == "Nicaragua" ~ 13,
+                     country == "Panama" ~ 14,
+                     country == "Paraguay" ~ 15,
+                     country == "Peru" ~ 16,
+                     country == "Uruguay" ~ 17,
+                     country == "Venezuela" ~ 18
+           )) %>% mutate(id = as.numeric(id)) %>%
+  select(-country_code, -govideology, -govideology2, -educate, -edcomp, -edfree, -v2x_suffr) %>%
+  arrange(id, year)
+
+@
+
+\title{Constitutional change, public spending on education and redistribution: theory and evidence}
+
+\vspace{-3em}
+
+\author{Davi Ferreira Veronese\thanks{MA Candidate in Political Science, University of São Paulo, \href{mailto:daviveronese@usp.br}{daviveronese@usp.br}}}
+
+\vspace{-2em}
+
+\date{\today}
+
+\begin{document}
+
+\maketitle 
+
+\vspace{-2em} % Adjust the value as needed
+
+\begin{abstract}
+\noindent Can a policy-driven constitutional reform shape policies and induce public spending? I formulate a theoretical framework according to which, in contexts of fragile coalitions, uncertainty about the future, and redistributive pressure, political actors have incentives to strategically use the constitution to bypass opposition, implement policies, and bind subsequent governments, which may increase the allocation of resources to selected policies even when critical junctures pass and political power shifts. Using a synthetic control, I provide evidence that the Ecuadorian Constitution of 2008 produced a substantial and persistent effect on public spending on education (mean effect of approximately 1.7\% of GDP), being a crucial element of education reform in Ecuador. Inference based on permutation of placebo tests shows that, under a random permutation of the intervention, the probability of estimating an effect as large as Ecuador’s is 6.7\%. Analyzing distributional consequences, I show that the reform increased secondary enrollment, which tends to benefit low-income families, although it had no effect on primary enrollment, years of schooling, and literacy rates. On the other hand, a sizeable fraction of the new resources was allocated to tertiary education, which contributes to educational inequality.
+\end{abstract}
+
+\begin{center}
+\textbf{Keywords:} Constitution, Education, Public Spending, Redistribution, Ecuador
+\end{center}
+
+\vspace{-2em} % Adjust the value as needed
+
+\newpage
+
+\onehalfspacing  % Set double spacing
+
+Text
+
+<<create_synth_1, include=FALSE>>=
+
+# Create synthetic control
+dataprep.out <-
+  dataprep(
+    foo = LA_data,
+    predictors= c("popgrowth_pctannual", "GDPgrowth_pctannual", 
+                  "trade_pctGDP", "seatsleft",
+                  "overall_primary_balance"
+    ),
+    predictors.op = c("mean"),
+    dependent = c("toteducexp_cg_pctGDP"),
+    special.predictors = list(
+      list("toteducexp_cg_pctGDP", 2003,c("mean")),
+      list("toteducexp_cg_pctGDP", 2008,c("mean"))),
+    unit.variable = c("id"),
+    time.variable = c("year"),
+    treatment.identifier = 1,
+    controls.identifier = c(2:18),
+    time.predictors.prior = c(2000:2008),
+    time.optimize.ssr = c(2002:2008),
+    unit.names.variable = c("country"),
+    time.plot = c(2000:2020)
+  )
+
+synth.out <- synth(data.prep.obj = dataprep.out,
+                   optimxmethod = c("All"))
+
+@
+
+<<Balance_tables>>=
+
+synth.tables <- synth.tab(
+  dataprep.res = dataprep.out,
+  synth.res = synth.out)
+
+# Create balance table
+balance_table <- as.data.frame(synth.tables[["tab.pred"]])
+
+balance_table <- rownames_to_column(balance_table, var = "Predictor") %>%
+  mutate(Predictor = case_when(
+    Predictor == "popgrowth_pctannual" ~ "Population Growth (% annual)",
+    Predictor == "GDPgrowth_pctannual" ~ "GDP Growth (% annual)",
+    Predictor == "trade_pctGDP" ~ "Trade (% GDP)",
+    Predictor == "overall_primary_balance" ~ "Overall primary balance",
+    Predictor == "seatsleft" ~ "Seats left (%)",
+    Predictor == "special.toteducexp_cg_pctGDP.2003" ~ "Spending on education (2003, %GDP)",
+    Predictor == "special.toteducexp_cg_pctGDP.2008" ~ "Spending on education (2008, %GDP)"
+  ))
+
+balance_table %>%
+  kable(caption = "Public spending on education predictor means before Ecuadorian Constitution") %>%
+  add_footnote("All variables except lagged spending on education are averaged for the 2000-2008 period")
+
+@
+
+<<synthetic_control, out.width='0.7\\linewidth', fig.asp=0.75,fig.show='hold', fig.ncol=1, fig.cap="Trajectories of public spending on education: Ecuador vs synthetic Ecuador (2000-2020)">>=
+
+# Plot outcomes
+path.plot(synth.res = synth.out,
+          dataprep.res = dataprep.out,
+          Ylab = c("Public spending on education (% GDP)"),
+          Xlab = c("Year"),
+          Legend = c("Ecuador","Synthetic Ecuador"),
+          Ylim = c(0,12), 
+          tr.intake = c(2008)
+)
+
+arrows(2007,7,2007.8,7,col="black",length=.05)
+text(2009.9,7,"Constitution",cex=0.9)
+
+@
+
+<<Placebo_tests, include=FALSE>>=
+
+store <- matrix(NA, length(2000:2020), 18)
+colnames(store) <- unique(LA_data$country)
+
+# Placebo tests
+for (iter in 1:18) {
+  controls <- setdiff(1:18, iter)
+  
+  dataprep.out <- dataprep(
+    foo = LA_data,
+    predictors = c("popgrowth_pctannual", "GDPgrowth_pctannual", 
+                  "trade_pctGDP", "seatsleft",
+                  "overall_primary_balance"
+    ),
+    predictors.op = c("mean"),
+    dependent = c("toteducexp_cg_pctGDP"),
+    special.predictors = list(
+      list("toteducexp_cg_pctGDP", 2003, c("mean")),
+      list("toteducexp_cg_pctGDP", 2008, c("mean"))
+    ),
+    unit.variable = c("id"),
+    time.variable = c("year"),
+    treatment.identifier = iter,
+    controls.identifier = controls,
+    time.predictors.prior = c(2000:2008),
+    time.optimize.ssr = c(2002:2008),
+    unit.names.variable = c("country"),
+    time.plot = c(2000:2020)
+  )
+  
+  # Run synth
+  synth.out <- synth(
+    data.prep.obj = dataprep.out,
+    method = "BFGS"
+  )
+  
+  # Store gaps
+  store[, iter] <- dataprep.out$Y1plot - (dataprep.out$Y0plot %*% synth.out$solution.w)
+}
+
+# Now create figure
+data <- store
+rownames(data) <- 2000:2020
+
+# Set bounds in gaps data
+gap.start <- 1
+gap.end <- nrow(data)
+years <- 2000:2020
+gap.end.pre  <- which(rownames(data)=="2008")
+
+# Plot (without removing countries with 5 times higher MSPE than Ecuador)
+plot(years, data[gap.start:gap.end,
+                 which(colnames(data)=="Ecuador")],
+     ylim=c(-5,5),xlab="year",
+     xlim=c(2000,2020),ylab="Gap in public spending on education (% GDP)",
+     type="l",lwd=2,col="black",
+       xaxs="i",yaxs="i")
+
+# Add lines for control states
+for (i in 1:ncol(data)) { lines(years,data[gap.start:gap.end,i],col="gray") }
+
+# Add Ecuador line
+lines(years,data[gap.start:gap.end,which(colnames(data)=="Ecuador")],lwd=2,col="black")
+
+# Add grid
+abline(h=0,lty="dashed",lwd=2)
+legend("bottomright",legend=c("Ecuador","control countries"),
+lty=c(1,1),col=c("black","gray"),lwd=c(2,1),cex=.8)
+abline(v=2008,lty="dotted",lwd=2)
+arrows(2007,2,2007.9,2,col="black",length=.1)
+text(2009.3,2,"Constitution",cex=0.9)
+
+@
+
+<<Placebo_tests_plot, out.width='0.7\\linewidth', fig.asp=0.75,fig.show='hold', fig.ncol=1, fig.cap="Public spending on education gaps in Ecuador and placebo gaps in 14 control countries (2000-2020) (excludes countries with pre-treatment MSPE five times higher than Ecuador)">>=
+
+#  MSPE Pre-Treatment
+mse <- apply(data[ gap.start:gap.end.pre,]^2,2,mean)
+ecuador.mse <- as.numeric(mse[1])
+costa.rica.mse <- as.numeric(mse[7])
+
+#  MSPE Post-Treatment
+gap.start.post  <- which(rownames(data)=="2009")
+mse_post <- apply(data[ gap.start.post:gap.end,]^2,2,mean)
+ecuador.mse.post <- as.numeric(mse_post[1])
+costa.rica.mse.post <- as.numeric(mse_post[7])
+
+# Ratio post/pre
+ecuador.ratio <- ecuador.mse.post/ecuador.mse
+costa.rica.ratio <- costa.rica.mse.post/costa.rica.mse
+
+# Exclude countries with 5 times higher MSPE than Ecuador
+data2 <- data[,mse<5*ecuador.mse]
+
+# Check mean gap after 2008
+data3 <- as.data.frame(data)
+
+data3 <- data3 %>%
+  rownames_to_column(var = "year_2") 
+
+data3 <- data3 %>% mutate(year_2 = as.numeric(year_2)) %>%
+  filter(year_2 >=2008) %>%
+  select(-year_2) %>%
+  summarize(across(everything(), mean)) # After 2008, mean gap is 1.70 for Ecuador, 1.47 for Costa Rica and below for others
+# Since we have 15 countries, under random permutation, probability is 1/15 = 0.067 (6.7%)
+
+# Plot (removing countries with 5 times higher MSPE than Ecuador)
+plot(years, data2[gap.start:gap.end,
+                 which(colnames(data2)=="Ecuador")],
+     ylim=c(-5,5),xlab="Year",
+     xlim=c(2000,2020),ylab="Gap in public spending on education (% GDP)",
+     type="l",lwd=2,col="black",
+       xaxs="i",yaxs="i")
+
+# Add lines for control states
+for (i in 1:ncol(data2)) { lines(years,data2[gap.start:gap.end,i],col="gray") }
+
+# Add Ecuador line
+lines(years,data2[gap.start:gap.end,which(colnames(data2)=="Ecuador")],lwd=2,col="black")
+
+# Add grid
+abline(h=0,lty="dashed",lwd=2)
+legend("bottomright",legend=c("Ecuador","control countries"),
+lty=c(1,1),col=c("black","gray"),lwd=c(2,1),cex=.8)
+abline(v=2008,lty="dotted",lwd=2)
+arrows(2007,2,2007.9,2,col="black",length=.1)
+text(2009.3,2,"Constitution",cex=0.9)
+
+@
+
+\restoregeometry
+\doublespacing
+\normalsize
+
+\onehalfspacing
+\printbibliography
+
+\end{document}
+
+

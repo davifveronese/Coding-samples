@@ -1,0 +1,325 @@
+---
+title: "2_coding_sample_cleaning_data"
+author: "Davi Ferreira Veronese"
+date: "2023-04-06"
+output: html_document
+---
+
+```{r}
+
+# This script employs custom functions and loops to clean and merge multiple datasets.
+# As it was developed for an ongoing project, all references to real data, paths, and names were removed. 
+# Thus, it is an anonymized script with the exclusive purpose of presenting some of the R codings I have been working on.
+# Please do not circulate it.
+
+```
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = F, warning=F, message=F, error=F, cache=T)
+
+# Set working directory
+knitr::opts_knit$set(root.dir = "directory_path")
+
+```
+
+```{r}
+
+# Load packages
+library(haven)
+library(tidyverse)
+library(tidylog)
+library(Hmisc)
+library(stringr)
+
+```
+
+```{r}
+
+#### Period T ####
+
+# 1) Read .csv files and save .dta
+
+## Get all .csv files in folder
+files <- list.files(path = "path", pattern = "*.csv", full.names = TRUE)
+
+## Create variable with file paths
+path <- files
+
+## Get unique file paths
+tofile <- unique(path)
+
+## Set i to 1
+i <- 1
+
+## Loop over csv files and generate clean dta files
+for (x in tofile) {
+  df <- read.csv(x, header = TRUE, stringsAsFactors = FALSE, sep = ",")
+  tosave <- sub(".csv", "", x)
+  colnames(df) <- gsub("\\.", " ", colnames(df))
+  for (col in colnames(df)) {
+  label(df[[col]]) <- col
+  }
+  colnames(df) <- gsub(" ", "", colnames(df))
+  colnames(df) <- gsub("_", "", colnames(df))
+  df <- df %>% rename_all(tolower)
+  label_vec <- colnames(df)
+  label_vec <- substr(label_vec, 1, 25)
+  colnames(df) <- label_vec
+  colnames(df) <- paste("t", i, "_", colnames(df), sep = "")
+  df$id <- seq.int(nrow(df))
+  write_dta(df, paste(tosave, ".dta", sep = ""), version = 14)
+  i <- i + 1
+}
+
+```
+
+```{r}
+
+# 2) Merge them
+rm(list = ls())
+
+## Get all .dta files in folder
+files <- list.files(path = "path", pattern = "*.dta", full.names = TRUE)
+
+## Create variable with file paths
+path <- files
+
+## Create a vector with the prefixes to loop through
+j <- c("1", "2", "3")
+
+## Loop through each file, rename and save
+for (x in path) {
+  df <- haven::read_dta(x)
+  for (y in j) {
+  col_names <- names(df)
+  new_col_names <- gsub(paste0("t", y, "_state"), "state", col_names)
+  new_col_names <- gsub(paste0("t", y, "_districtname"), "district", new_col_names)
+  new_col_names <- gsub(paste0("t", y, "_blockname"), "block", new_col_names)
+  new_col_names <- gsub(paste0("t", y, "_panchayatname"), "gp", new_col_names)
+  names(df) <- new_col_names
+  }
+  colnames(df) <- str_replace_all(colnames(df), "\\...", "_")
+  haven::write_dta(df, x)
+}
+
+## Merge the data
+dfs <- lapply(files, haven::read_dta)
+
+for (i in 1:(length(dfs)-2)) {
+  dfs[[i]] <- full_join(dfs[[i]], dfs[[i+1]], by = c("state", "district", "block", "gp"))
+  dfs[[i]] <- full_join(dfs[[i]], dfs[[i+2]], by = c("state", "district", "block", "gp"))
+}
+
+data_merged_t <- dfs[[1]]
+
+# Replace characters
+colnames(nrega_merged_t) <- str_replace_all(colnames(nrega_merged_t), "\\.", "_")
+
+```
+
+```{r}
+
+# 3) Clean
+
+# Create id variable
+data_merged_t <- data_merged_t %>%
+  mutate(id = row_number()) %>% 
+  select(id, everything())
+
+# Convert strings to lowercase
+data_merged_t <- data_merged_t %>%
+  mutate(across(c(state, district, block, gp), tolower))
+
+# Clean district and blocks' names
+data_merged_t <- data_merged_t %>%
+  mutate(
+    district = case_when(
+      district == "name_1" ~ "name_2",
+      district == "name_3" ~ "name_4",
+      district == "name_5" ~ "baliya",
+      TRUE ~ district),
+    block = case_when(
+      block == "name_1" ~ "name_2",
+      block == "name_3" ~ "name_4",
+      block == "name_5" ~ "name_6",
+      block ~ TRUE))
+
+# Let's try to improve block's consistency
+## Import dataframe with same blocks with slightly different names (from previous check)
+same_blocks <- read_dta("path")
+
+## Store the pairs in a list
+combine <- function(x, y) {
+  c(x, y)
+}
+pair_list <- mapply(combine, same_blocks$block_1, same_blocks$block_2, SIMPLIFY = FALSE)
+
+## Rename blocks
+for (i in pair_list) {
+  data_merged_t <- data_merged_t %>%
+    mutate(block = case_when(
+      block == i[2] ~ i[1],
+      TRUE ~ block
+    ))
+}
+
+# Drop missing GPs
+data_merged_t <- data_merged_t %>%
+  filter(gp != "")
+
+```
+
+```{r}
+
+# Save data
+write_dta(data_merged_t, "path")
+
+```
+
+```{r}
+
+#### Period T+1 ####
+rm(list = ls())
+
+# 1) Read .csv files and save .dta
+
+## Get all .csv files in folder
+files <- list.files(path = "path", pattern = "*.csv", full.names = TRUE)
+
+## Create variable with file paths
+path <- files
+
+## Get unique file paths
+tofile <- unique(path)
+
+## Set i to 4
+i <- 4
+
+## Loop over csv files and generate dta files
+for (x in tofile) {
+  df <- read.csv(x, header = TRUE, stringsAsFactors = FALSE, sep = ",")
+  tosave <- sub(".csv", "", x)
+  colnames(df) <- gsub("\\.", " ", colnames(df))
+  for (col in colnames(df)) {
+  label(df[[col]]) <- col
+  }
+  colnames(df) <- gsub(" ", "", colnames(df))
+  colnames(df) <- gsub("_", "", colnames(df))
+  df <- df %>% rename_all(tolower)
+  label_vec <- colnames(df)
+  label_vec <- substr(label_vec, 1, 25)
+  colnames(df) <- label_vec
+  colnames(df) <- paste("t", i, "_", colnames(df), sep = "")
+  df$id <- seq.int(nrow(df))
+  write_dta(df, paste(tosave, ".dta", sep = ""), version = 14)
+  i <- i + 1
+}
+
+```
+
+```{r}
+
+# 2) Merge to each other
+rm(list = ls())
+
+## Get all .dta files in folder
+files <- list.files(path = "path", pattern = "*.dta", full.names = TRUE)
+
+## Create variable with file paths
+path <- files
+
+## Create a vector with the prefixes to loop through
+j <- c("4", "5", "6", "7", "8", "9")
+
+## Loop through each file, rename and save
+for (x in path) {
+  df <- haven::read_dta(x)
+  for (y in j) {
+  col_names <- names(df)
+  new_col_names <- gsub(paste0("t", y, "_state"), "state", col_names)
+  new_col_names <- gsub(paste0("t", y, "_districtname"), "district", new_col_names)
+  new_col_names <- gsub(paste0("t", y, "_blockname"), "block", new_col_names)
+  new_col_names <- gsub(paste0("t", y, "_panchayatname"), "gp", new_col_names)
+  names(df) <- new_col_names
+  }
+  colnames(df) <- str_replace_all(colnames(df), "\\...", "_")
+  haven::write_dta(df, x)
+}
+
+## Merge the data
+dfs <- lapply(files, haven::read_dta)
+
+for (i in 1:(length(dfs)-5)) {
+  dfs[[i]] <- full_join(dfs[[i]], dfs[[i+1]], by = c("state", "district", "block", "gp"))
+  dfs[[i]] <- full_join(dfs[[i]], dfs[[i+2]], by = c("state", "district", "block", "gp"))
+  dfs[[i]] <- full_join(dfs[[i]], dfs[[i+3]], by = c("state", "district", "block", "gp"))
+  dfs[[i]] <- full_join(dfs[[i]], dfs[[i+4]], by = c("state", "district", "block", "gp"))
+  dfs[[i]] <- full_join(dfs[[i]], dfs[[i+5]], by = c("state", "district", "block", "gp"))
+}
+
+data_merged_t1 <- dfs[[1]]
+
+# Replace characters
+colnames(data_merged_t1) <- str_replace_all(colnames(data_merged_t1), "\\.", "_")
+
+```
+
+```{r}
+
+# 3) Clean
+
+# Create id variable and reorder
+data_merged_t1 <- data_merged_t1 %>%
+  mutate(id = row_number()) %>% 
+  select(id, everything())
+
+# Convert strings to lowercase
+data_merged_t1 <- data_merged_t1 %>%
+  mutate(across(c(state, district, block, gp), tolower))
+
+# Clean district and blocks' names
+data_merged_t1 <- data_merged_t1 %>%
+  mutate(
+    district = case_when(
+      district == "name_1" ~ "name_2",
+      district == "name_3" ~ "name_4",
+      district == "name_5" ~ "baliya",
+      TRUE ~ district),
+    block = case_when(
+      block == "name_1" ~ "name_2",
+      block == "name_3" ~ "name_4",
+      block == "name_5" ~ "name_6",
+      block ~ TRUE))
+
+# Let's try to improve block's consistency
+## Import dataframe with same blocks with slightly different names (from previous check)
+same_blocks <- read_dta("path")
+
+## Store the pairs in a list
+combine <- function(x, y) {
+  c(x, y)
+}
+pair_list <- mapply(combine, same_blocks$block_1, same_blocks$block_2, SIMPLIFY = FALSE)
+
+## Rename blocks
+for (i in pair_list) {
+  data_merged_t1 <- data_merged_t1 %>%
+    mutate(block = case_when(
+      block == i[2] ~ i[1],
+      TRUE ~ block
+    ))
+}
+
+# Drop missing GPs
+data_merged_t1 <- data_merged_t1 %>%
+  filter(gp != "")
+
+```
+
+```{r}
+
+# Save data set for second period
+write_dta(nrega_merged_t1_r, "path")
+
+```

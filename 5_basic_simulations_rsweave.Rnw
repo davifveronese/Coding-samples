@@ -1,0 +1,265 @@
+
+\documentclass[11pt]{article}
+
+\usepackage{indentfirst, amsmath, setspace, amssymb, amsthm}
+
+\usepackage{natbib}
+%\bibliographystyle{apsr2006}
+\bibliographystyle{apsr}
+\setcitestyle{aysep={}}
+%\usepackage[backend=bibtex]{biblatex}
+
+\usepackage{graphicx}
+\usepackage{hyperref}
+
+\usepackage{graphicx} 
+\usepackage{pgf,tikz} 
+%\usepackage{pgfplots}
+\usetikzlibrary{arrows,shapes}
+\usetikzlibrary{decorations}
+
+\usepackage{enumitem}
+\usepackage{pdflscape}
+\usepackage{mathtools}
+\usepackage{upgreek} 
+\usepackage{xfrac}
+\usepackage{epstopdf}
+\usepackage{color}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{longtable} 
+\usepackage{verbatim}
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{longtable}
+\usepackage{dcolumn}
+\usepackage{lscape}
+%\usepackage{apacite}
+\usepackage{hyperref}
+\usetikzlibrary{shapes,arrows}
+\usetikzlibrary{positioning}
+\usepackage[capposition=top]{floatrow}
+\usepackage{fullpage}
+%\usepackage[small,bf]{caption}
+\usepackage{float}
+\usepackage{placeins}
+\usepackage{color, colortbl}
+\usepackage{bigstrut}
+\renewcommand{\floatpagefraction}{.8}
+\definecolor{LightCyan}{RGB}{204,229,255}
+
+\usepackage{xcolor}
+\hypersetup{
+    colorlinks,
+    linkcolor={red!50!black},
+    citecolor={blue!50!black},
+    urlcolor={blue!80!black}
+}
+
+\usepackage{adjustbox}
+
+\newcolumntype{R}[2]{%
+    >{\adjustbox{angle=#1,lap=\width-(#2)}\bgroup}%
+    l%
+    <{\egroup}%
+}
+\newcommand*\rot{\multicolumn{1}{R{45}{1em}}}% no optional argument here, please!
+
+\theoremstyle{plain}
+\newtheorem{hyp}{Hypothesis}
+
+\usepackage{subcaption}
+\newcommand{\subfloat}[2][need a sub-caption]{\subcaptionbox{#1}{#2}}
+\newcolumntype{L}[1]{>{\raggedright\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
+
+\newcommand{\citeposs}[1]{\citeauthor{#1}'s \citeyear{#1}}
+\usepackage{rotating}
+\usepackage{ragged2e}
+\newcolumntype{P}[1]{>{\RaggedRight\hspace{0pt}}p{#1}}
+\usepackage[left=1.25in, right=1.25in, top=1.25in, bottom=1.25in, footskip=.25in]{geometry}
+% This makes footnotes appear to be single spaced within each entry, but double spaced between entries.
+\setlength{\footnotesep}{16pt}
+
+\newtheorem{prop}{Proposition}
+
+\pagestyle{plain}
+
+\onehalfspacing
+
+<<>>=
+
+# These are some basic simulation examples/exercises I used to teach statistical simulation in R as a TA of quantitative methods at the University of São Paulo.
+
+@
+
+<<setup_general, include=F>>=
+knitr::opts_chunk$set(warning=F, message=F, error=F, cache=T)
+options(Encoding="UTF-8")
+@
+
+\title{Quantitative Methods - Exercises}
+\author{Davi Veronese}
+\date{\today}
+
+\begin{document}
+
+\maketitle 
+
+\section{Visualizing the Central Limit Theorem}
+
+<<include=FALSE>>=
+
+vec_30 <- numeric()
+vec_50 <- numeric()
+vec_100 <- numeric()
+
+for (i in 1:30) {
+  vec_30[i] <- mean(runif(100, min = 0, max = 10))
+  }
+
+for (i in 1:50) {
+  vec_50[i] <- mean(runif(100, min = 0, max = 10))
+  }
+
+for (i in 1:100){
+  vec_100[i] <- mean(runif(100, min = 0, max = 10))
+  }
+
+df1 <- data.frame(medias = vec_30, sim_id = 1:30)
+df2 <- data.frame(medias = vec_50, sim_id = 1:50)
+df3 <- data.frame(medias = vec_100, sim_id = 1:100)
+
+df1 %>% ggplot2::ggplot() +
+  geom_density(aes(medias))
+
+df2 %>% ggplot2::ggplot() +
+  geom_density(aes(medias))
+
+df3 %>% ggplot2::ggplot() +
+  geom_density(aes(medias))
+
+@
+
+\section{Simulating probabilities in flipping a coin}
+
+<<echo=TRUE>>=
+
+library(tidyverse)
+library(dplyr)
+library(tidylog)
+
+# Defina o número de lançamentos
+n <- 1000000
+
+# Crie um vetor para armazenar os resultados das jogadas
+X <- numeric()
+
+# Suponha que "Cara" == "sair 1" & "Coroa" == "sair 2"
+
+# Lance a moeda n vezes e armazene os resultados
+set.seed(13492)
+for (i in 1:n) { 
+  X[i] <- sample(1:2, size=1, replace = TRUE)
+  }
+
+X <- ifelse(X == 1, "Cara", "Coroa")
+
+## probabilities
+sum(X=="Cara")/n # 50,069%
+sum(X=="Coroa")/n # 49,931%
+
+@
+
+\section{Simulating probabilities from the Monty Hall problem}
+
+<<echo=TRUE>>=
+
+set.seed(11231)
+
+# WITHOUT CHANGING THE DOOR
+
+# Defina o número de repetições
+n <- 100000
+
+# Defina as portas
+portas <- c(1, 2, 3)
+
+# Estabeleça o número inicial de vitórias (a ser atualizado ao longo da simulação)
+n_vitorias <- 0
+
+# Primeiro, considere o cenário em que você não muda a escolha da porta
+for(i in 1:n) {
+  
+  vitoria <- sample(portas, 1, replace = TRUE) ## Porta com o carro
+  
+  escolha <-  sample(portas, 1, replace = TRUE) ## Pode ser qualquer uma das três portas 
+  
+  if(escolha == vitoria)
+  {
+    porta_revelada <- sample(portas[-escolha],size = 1)
+  } ## Se a porta escolhida é igual à porta vitoriosa, o apresentador retira uma das restantes (não vitoriosas)
+  else
+  {
+    porta_revelada <- portas[-c(escolha, vitoria)] 
+  } ## Se a porta escolhida não é igual à vitoriosa, o apresentador retira uma porta não vitoriosa (não escolhida)
+  
+  if(escolha == vitoria)
+  {
+    n_vitorias <- n_vitorias + 1
+  } ## Se a porta escolhida é igual à vitoriosa, somo 1 no número de vitórias
+}
+
+## Para calcular a probabilidade de vitória, divida o número de vitórias pelo número de repetições
+n_vitorias/n # 33,275%
+
+# CHANGING THE DOOR
+
+## Defina uma nova variável para contar o número de vitórias
+n_vitorias_2 <- 0
+
+for(i in 1:n) {
+  
+  vitoria <- sample(portas, 1, replace = TRUE) ## Porta com o carro
+  
+  escolha <-  sample(portas, 1, replace = TRUE) ## Pode ser qualquer uma das três portas 
+  
+  if(escolha == vitoria)
+  {
+    porta_revelada <- sample(portas[-escolha],size = 1)
+  } ## Se a porta escolhida é igual à porta vitoriosa, o apresentador retira uma das restantes (não vitoriosas)
+  else
+  {
+    porta_revelada <- portas[-c(escolha, vitoria)] 
+  } ## Se a porta escolhida não é igual à vitoriosa, o apresentador retira uma porta não vitoriosa (não escolhida)
+  
+  nova_escolha <- portas[-c(escolha, porta_revelada)] # Mudo a porta escolhida após o apresentador abrir uma porta
+  
+  if(nova_escolha == vitoria)
+  {
+    n_vitorias_2 <- n_vitorias_2 + 1
+  } ## Se a nova porta escolhida é igual à vitoriosa, somo 1 no número de vitórias
+}
+
+## Para calcular a nova probabilidade de vitória, divida novamente o número de vitórias pelo número de repetições
+n_vitorias_2/n # 66,752%
+
+@
+
+<<echo=FALSE>>=
+
+# Clean environment
+rm(list=ls()) 
+
+@
+
+\section{}
+
+\restoregeometry
+\doublespacing
+\normalsize
+
+\onehalfspacing
+\bibliography{Complete}
+
+\end{document}

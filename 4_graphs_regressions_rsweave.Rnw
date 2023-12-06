@@ -1,0 +1,419 @@
+\documentclass[11pt]{article}
+
+\usepackage{indentfirst, amsmath, setspace, amssymb, amsthm}
+
+\usepackage{natbib}
+%\bibliographystyle{apsr2006}
+\bibliographystyle{apsr}
+\setcitestyle{aysep={}}
+%\usepackage[backend=bibtex]{biblatex}
+
+\usepackage{graphicx}
+\usepackage{hyperref}
+
+\usepackage{graphicx} 
+\usepackage{pgf,tikz} 
+%\usepackage{pgfplots}
+\usetikzlibrary{arrows,shapes}
+\usetikzlibrary{decorations}
+
+\usepackage{enumitem}
+\usepackage{pdflscape}
+\usepackage{mathtools}
+\usepackage{upgreek} 
+\usepackage{xfrac}
+\usepackage{epstopdf}
+\usepackage{color}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{longtable} 
+\usepackage{verbatim}
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{longtable}
+\usepackage{dcolumn}
+\usepackage{lscape}
+%\usepackage{apacite}
+\usepackage{hyperref}
+\usetikzlibrary{shapes,arrows}
+\usetikzlibrary{positioning}
+\usepackage[capposition=top]{floatrow}
+\usepackage{fullpage}
+%\usepackage[small,bf]{caption}
+\usepackage{float}
+\usepackage{placeins}
+\usepackage{color, colortbl}
+\usepackage{bigstrut}
+\renewcommand{\floatpagefraction}{.8}
+\definecolor{LightCyan}{RGB}{204,229,255}
+
+\usepackage{xcolor}
+\hypersetup{
+    colorlinks,
+    linkcolor={red!50!black},
+    citecolor={blue!50!black},
+    urlcolor={blue!80!black}
+}
+
+\usepackage{adjustbox}
+
+\newcolumntype{R}[2]{%
+    >{\adjustbox{angle=#1,lap=\width-(#2)}\bgroup}%
+    l%
+    <{\egroup}%
+}
+\newcommand*\rot{\multicolumn{1}{R{45}{1em}}}% no optional argument here, please!
+
+\theoremstyle{plain}
+\newtheorem{hyp}{Hypothesis}
+
+\usepackage{subcaption}
+\newcommand{\subfloat}[2][need a sub-caption]{\subcaptionbox{#1}{#2}}
+\newcolumntype{L}[1]{>{\raggedright\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
+
+\newcommand{\citeposs}[1]{\citeauthor{#1}'s \citeyear{#1}}
+\usepackage{rotating}
+\usepackage{ragged2e}
+\newcolumntype{P}[1]{>{\RaggedRight\hspace{0pt}}p{#1}}
+\usepackage[left=1.25in, right=1.25in, top=1.25in, bottom=1.25in, footskip=.25in]{geometry}
+% This makes footnotes appear to be single spaced within each entry, but double spaced between entries.
+\setlength{\footnotesep}{16pt}
+
+\newtheorem{prop}{Proposition}
+
+\pagestyle{plain}
+
+\onehalfspacing
+
+<<>>=
+
+# This script is a fragment of multiple graphs and regressions (with stargazer tables) I have produced in my RA work.
+# As they were developed for an ongoing project, all references to real data, paths, and names were removed. 
+# Thus, it is an anonymized script with the exclusive purpose of presenting some of the R codings I have been working on.
+# Please do not circulate it.
+
+@
+
+<<setup_general, include=F>>=
+knitr::opts_chunk$set(echo = F, warning=F, message=F, error=F, cache=T)
+options(Encoding="UTF-8")
+@
+
+<<setup_pre, cache=FALSE, include=F>>=
+
+library(tidyverse)
+library(tidylog)
+library(sf)
+library(googlesheets4)
+library(knitr)
+library(lubridate)
+library(broom)
+library(kableExtra)
+library(factoextra)
+library(stargazer)
+library(sjPlot)
+library(list)
+library(forcats)
+library(tidyselect)
+library(tidygraph)
+library(glue)
+library(statnet)
+library(ggraph)
+library(sandwich)
+library(lmtest)
+library(scales)
+library(patchwork)
+library(netseg)
+library(sensemakr)
+library(list)
+
+@
+
+<<echo=FALSE, error=FALSE, warning=FALSE, message=FALSE>>=
+
+# Import data
+data <- readRDS("path")
+
+@
+
+\title{Title...}
+
+\begin{document}
+
+\maketitle 
+
+<<name, out.width='.45\\linewidth',fig.show='hold', fig.ncol=1, fig.cap="title">>=
+
+# Figure
+data %>%
+  filter(Status == "Completed") %>%
+  filter(!is.na(Gender)) %>%
+  group_by(Gender) %>%
+  summarize(mean_out_degree_male = mean(Out_degree_ng_pol_male, na.rm = TRUE),
+            mean_out_degree_female = mean(Out_degree_ng_pol_female, na.rm = TRUE)) %>%
+  gather(key = "Category", value = "Mean_Degree", mean_out_degree_male, mean_out_degree_female) %>%
+  ggplot(aes(x = Gender, y = Mean_Degree, fill = Category)) +
+  geom_col() +
+  labs(x = "Gender", y = "Mean Degree") +
+  scale_fill_manual(values = c("#1B9E77", "#D95F02"),
+                    labels = c("Political connections with women", "Political connections with men")) +
+  theme_minimal() +
+  labs(fill = "Gender") +
+  theme(axis.text=element_text(size=18),
+        axis.title=element_text(size=18),
+        legend.text = element_text(size = 18),
+        legend.title = element_text(size = 18))
+
+@
+
+<<name_2, out.width='.45\\linewidth',fig.show='hold', fig.ncol=1, fig.cap="title_2">>=
+
+# Graph 2
+data %>%
+  filter(Status == "Completed") %>%
+  filter(!is.na(Gender)) %>%
+  group_by(Gender) %>%
+  summarize(
+    mean_out_degree_samejati = mean(Out_degree_ng_pol_samejati, na.rm = TRUE),
+    mean_out_degree_difjati = mean(Out_degree_ng_pol_difjati, na.rm = TRUE),
+    mean_out_degree_unknownjati = mean(Out_degree_ng_pol_unknownjati, na.rm = TRUE)
+  ) %>%
+  pivot_longer(
+    cols = c(
+      mean_out_degree_samejati,
+      mean_out_degree_difjati,
+      mean_out_degree_unknownjati
+    ),
+    names_to = "Category",
+    values_to = "Mean_Degree"
+  ) %>%
+  mutate(
+    Category = case_when(
+      Category == "mean_out_degree_samejati" ~ "Same Jati",
+      Category == "mean_out_degree_difjati" ~ "Different Jati",
+      Category == "mean_out_degree_unknownjati" ~ "Unknown Jati"
+    )
+  ) %>%
+  ggplot(aes(x = Gender, y = Mean_Degree, fill = Category)) +
+  geom_col(position = "stack") +
+  labs(x = "Gender", y = "Mean Degree") +
+  scale_fill_brewer(palette = "Set1") +
+  theme_minimal() +
+  labs(
+    fill = "Category"
+  ) +
+  theme(axis.text=element_text(size=18),
+        axis.title=element_text(size=18),
+        legend.text = element_text(size = 18),
+        legend.title = element_text(size = 18))
+
+@
+
+<<Models_1, results ='asis'>>=
+
+# Recode VARIABLE
+data <- data %>% ungroup() %>% mutate(Gender = case_when(Gender=="F"~1,
+                                                         Gender=="M"~0))
+
+## reg1
+reg_outdegree <- data %>%
+  filter(Status=="Completed") %>%
+  filter(!is.na(jati) & !is.na(member_marriage) & !is.na(religion)) %>%
+  mutate(jati = as.factor(jati),
+         religion = as.factor(religion),
+         member_marriage = as.factor(member_marriage)) %>%
+  lm(Out_degree_ng_pol~Gender + age + education + years_in_village + work_outside + asset_score + village + jati + religion + member_marriage, data=.)
+cluster_se_outdegree <- sqrt(diag(vcovCL(reg_outdegree, cluster = ~village))) # Calculate cluster-robust standard errors
+
+## reg2
+reg_indegree <- data %>%
+  filter(Status=="Completed") %>%
+  filter(!is.na(jati) & !is.na(member_marriage) & !is.na(religion)) %>%
+  mutate(jati = as.factor(jati),
+         religion = as.factor(religion),
+         member_marriage = as.factor(member_marriage)) %>%
+  lm(In_degree_ng_pol~Gender + age + education + years_in_village + work_outside + asset_score + village + jati + religion + member_marriage, data=.)
+cluster_se_indegree <- sqrt(diag(vcovCL(reg_indegree, cluster = ~village))) # Calculate cluster-robust standard errors
+
+## reg3
+reg_totaldegree <- data %>%
+  filter(Status=="Completed") %>%
+  filter(!is.na(jati) & !is.na(member_marriage) & !is.na(religion)) %>%
+  mutate(jati = as.factor(jati),
+         religion = as.factor(religion),
+         member_marriage = as.factor(member_marriage)) %>%
+  lm(Total_degree_ng_pol~Gender + age + education + years_in_village + work_outside + asset_score + village + jati + religion + member_marriage, data=.)
+cluster_se_totaldegree <- sqrt(diag(vcovCL(reg_totaldegree, cluster = ~village))) # Calculate cluster-robust standard errors
+
+## reg4
+reg_centrality <- data %>%
+  filter(Status=="Completed") %>%
+  filter(!is.na(jati) & !is.na(member_marriage) & !is.na(religion)) %>%
+  mutate(jati = as.factor(jati),
+         religion = as.factor(religion),
+         member_marriage = as.factor(member_marriage)) %>%
+  lm(Centrality_eigen_ng_pol~Gender + age + education + years_in_village + work_outside + asset_score + village + jati + religion + member_marriage, data=.)
+cluster_se_centrality <- sqrt(diag(vcovCL(reg_centrality, cluster = ~village))) # Calculate cluster-robust standard errors
+
+## Stargazer table
+stargazer(reg_outdegree, reg_indegree, reg_totaldegree, reg_centrality, type = "latex",
+          se = list(cluster_se_outdegree, cluster_se_indegree, cluster_se_totaldegree, cluster_se_centrality),
+          dep.var.labels = c("Out-degree", "In-degree", "Total degree", "Centrality"),
+          covariate.labels = c("Gender" = "Gender (female)"),
+          omit = c("village", "jati", "religion", "member_marriage"),
+          omit.labels = c("Village FEs", "Jati", "Religion", "Marriage"),
+          add.lines = list(c("Clustered Errors", "Yes", "Yes", "Yes", "Yes")),
+          omit.stat = c("adj.rsq", "ser", "f"),
+          title = "Correlations between political discussion degree and gender",
+          column.sep.width = "2pt",
+          header = FALSE)
+
+@
+
+<<name_4>>=
+
+# Calculate partial R² 
+gender1 <- unname(partial_r2(reg_outdegree, covariates = "Gender"))
+
+gender2 <- unname(partial_r2(reg_indegree, covariates = "Gender"))
+
+gender3 <- unname(partial_r2(reg_totaldegree, covariates = "Gender"))
+
+gender4 <- unname(partial_r2(reg_centrality, covariates = "Gender"))
+
+# Create table
+partial_rsquare <- bind_rows(
+  data.frame(Model = "reg_outdegree", R2_Gender = gender1),
+  data.frame(Model = "reg_indegree", R2_Gender = gender2),
+  data.frame(Model = "reg_totaldegree", R2_Gender = gender3),
+  data.frame(Model = "reg_centrality", R2_Gender = gender4)
+) %>% mutate(Model = case_when(
+  Model == "reg_outdegree" ~ "Linear Model for Out-Degree",
+  Model == "reg_indegree" ~ "Linear Model for In-Degree",
+  Model == "reg_totaldegree" ~ "Linear Model for Total Degree",
+  Model == "reg_centrality" ~ "Linear Model for Centrality"
+)) %>% select(Model, R2_Gender)
+
+partial_rsquare %>% kable(caption = "Partial R² of Gender and Jatis", digits = 5)
+
+@
+
+<<name_5, out.width='.45\\linewidth',fig.show='hold', fig.ncol=1, fig.cap="title_5">>=
+
+# One more graph
+data %>%
+  filter(Status == "Completed") %>%
+  filter(!is.na(duration)) %>%
+  select(Gender, new_electoral_participation_index, new_non_electoral_participation_index, election_favors) %>% 
+  pivot_longer(cols=c(new_electoral_participation_index, new_non_electoral_participation_index),
+               names_to="Participation_Type",
+               values_to="Participated")  %>%
+  filter(!is.na(Gender) & !is.na(Participated)) %>%
+  group_by(Gender, Participation_Type, Participated) %>%
+  summarize(Vote_Buying_Offers_Rate=mean(election_favors, na.rm=T)) %>%
+  mutate(Participation_Type=case_when(Participation_Type=="new_electoral_participation_index"~"Electoral Participation",
+                                      Participation_Type=="new_non_electoral_participation_index"~"Non-electoral participation"),
+             Participated = case_when(Participated==1~"Participated", 
+                                      Participated==0~"Did Not Participate")) %>%
+  arrange(Participation_Type, Participated, Gender) %>%
+  ggplot() +
+  geom_col(aes(x=Participation_Type, y=Vote_Buying_Offers_Rate,
+               fill= interaction(Gender,Participated)),
+           position="dodge") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+  scale_fill_brewer(palette="Dark2") +
+  theme(axis.text=element_text(size=18),
+        axis.title=element_text(size=18),
+        legend.text = element_text(size = 18),
+        legend.title = element_text(size = 18)) +
+  xlab("") +
+  ylab("Vote Buying Offers Rate") + 
+  scale_y_continuous(labels = percent) +
+  labs(
+    fill = "Participation and Gender")
+@
+
+<<density_plots, out.width='.45\\linewidth',fig.show='hold', fig.ncol=2, fig.cap="Density Plots for Degrees of Political Discussion", fig.subcap=c("title1", "title2", "title3", "title4")>>=
+
+# Create density plots for the dependent variables
+data %>% 
+  filter(Status == "Completed" & !is.na(Gender)) %>%
+  ggplot() +
+  geom_density(aes(x=Out_degree_ng_pol, color=Gender)) +
+  theme_classic() +
+  scale_fill_brewer(palette="Set2")
+
+data %>% 
+  filter(Status == "Completed" & !is.na(Gender)) %>%
+  ggplot() +
+  geom_density(aes(x=In_degree_ng_pol, color=Gender)) +
+  theme_classic() +
+  scale_fill_brewer(palette="Set2") +
+  xlim(0,20)
+
+data %>% 
+  filter(Status == "Completed" & !is.na(Gender)) %>%
+  ggplot() +
+  geom_density(aes(x=Total_degree_ng_pol, color=Gender)) +
+  theme_classic() +
+  scale_fill_brewer(palette="Set2") +
+  xlim(0,20)
+
+data %>% 
+  filter(Status == "Completed" & !is.na(Gender)) %>%
+  ggplot() +
+  geom_density(aes(x=Centrality_eigen_ng_pol, color=Gender)) +
+  theme_classic() +
+  scale_fill_brewer(palette="Set2")
+
+@
+
+<<name_6, out.width='.45\\linewidth',fig.show='hold', fig.ncol=1, fig.cap="title_6">>=
+
+data %>%
+  filter((quota_single_lower_house_type %in% c("legislated candidate quotas", "reserved seats") 
+          & !is.na(gap_slh))) %>%
+  rename(Type = quota_single_lower_house_type) %>%
+  mutate(Type = case_when(Type == "legislated candidate quotas" ~ "Candidate quotas",
+                          Type == "reserved seats" ~ "Reserved seats")) %>%
+  ggplot(aes(x = reorder(country, gap_slh), y = gap_slh, fill = Type)) +
+  scale_fill_brewer(palette = "Set1") +
+  geom_bar(stat = "identity", width = 0.5) + 
+  geom_text(aes(y = 40, label = quota_single_lower_house_percentage), size = 2) +
+  theme_minimal(base_size = 6) + 
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
+    axis.title = element_text(size = 10), 
+    plot.title = element_text(size = 14), 
+  ) +
+  labs(x = "Country", y = "Gap with quota") +
+  coord_flip() +
+  annotate("text", x = 50, y = 41.5, label = "Percentage", hjust = 1, size = 3.5, angle = 90) +
+  geom_hline(aes(yintercept = mean(gap_slh)), linetype = "dashed", color = "black") +
+  ggtitle("Gaps between candidate quotas or reserved seats and women in congress")
+
+@
+
+
+\restoregeometry
+\doublespacing
+\normalsize
+
+\onehalfspacing
+\bibliography{Complete}
+
+
+\end{document}
+
+
+
+
+
+
+
+
+
+
+
